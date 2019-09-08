@@ -9,3 +9,7 @@ bin
 
 # IDE-specifics
 .vscode
+
+# Run-time artifacts
+database.db
+mangabot.log
