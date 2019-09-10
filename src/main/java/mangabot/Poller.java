@@ -1,12 +1,15 @@
 package mangabot;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -28,9 +31,12 @@ class Poller {
     // Customized User-Agent header following Reddit's API rule
     final private String USER_AGENT_HEADER = "java:mangabot:v0.1 by /u/phamngtuananh";
 
+    /**
+     * Poller class. At the moment, use {@link Poller#poll()} to fetch JSON from
+     * Reddit.
+     */
     public Poller() {
         this.httpClient = HttpClients.createDefault();
-        logger.info("HTTP client successfully created.");
 
         this.responseHandler = new ResponseHandler<JSONObject>() {
             @Override
@@ -62,16 +68,51 @@ class Poller {
         logger.info("Initialize successfully.");
     }
 
-    public void poll() {
-        HttpGet request = new HttpGet("https://www.reddit.com/r/manga.json");
-        request.addHeader("User-Agent", USER_AGENT_HEADER);
+    /**
+     * Fetch JSONs from Reddit (subreddit /r/manga) using HTTP requests.
+     * 
+     * @return the JSONObject object from Reddit. If the HTTP request fails, the
+     *         method returns null.
+     */
+    public JSONObject poll() {
         try {
-            JSONObject jsonObj = this.httpClient.execute(request, this.responseHandler);
-            if (jsonObj != null) {
-                // parse and process the json
-            }
-        } catch (IOException ioe) {
-            logger.error("Error occured while executing HTTP request", ioe);
+            URIBuilder uriBuilder = new URIBuilder("https://api.reddit.com/r/manga");
+            return this.executeHttpRequest(uriBuilder.build());
+        } catch (URISyntaxException exc) {
+            logger.error("Error occurred in URI building process", exc);
+            return null;
         }
+    }
+
+    public JSONObject searchRedditPost(String mangaName) {
+        try {
+            URIBuilder uriBuilder = new URIBuilder("https://api.reddit.com/search")
+                    .addParameter("q", mangaName + " subreddit:manga flair:disc")
+                    .addParameter("sort", "new")
+                    .addParameter("t", "all");
+
+            return this.executeHttpRequest(uriBuilder.build());
+        } catch (URISyntaxException exc) {
+            logger.error("Error occurred in URI building process", exc);
+            return null;
+        }
+
+    }
+
+    private JSONObject executeHttpRequest(URI uri) {
+        try {
+            logger.debug("Executing request from URI: {}", uri);
+            HttpGet request = new HttpGet(uri);
+            request.addHeader("User-Agent", USER_AGENT_HEADER);
+            return this.httpClient.execute(request, this.responseHandler);
+        } catch (IOException exc) {
+            logger.error("Error occured while executing HTTP request", exc);
+            return null;
+        }
+    }
+
+    static public void main(String[] args) {
+        Poller p = new Poller();
+        logger.info("{}", p.searchRedditPost("shingeki no kyojin"));
     }
 }
